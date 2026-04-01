@@ -14,7 +14,9 @@ permissions:
 
 jobs:
   publish:
-    uses: sidj-thr-org/actions/.github/actions/npm-publish@main
-    with:
-      git-ref: ${{ github.ref }}
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps: 
+      - uses: sidj-thr-org/actions/.github/actions/npm-publish@main
+        with:
+          git-ref: ${{ github.ref }}
+        
