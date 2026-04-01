@@ -1,0 +1,68 @@
+name: NPM trusted publish
+description: Checkout, sync semver from a v* ref, test, and npm publish (OIDC).
+
+inputs:
+  git-ref:
+    description: Ref used to derive the version (pass github.ref; e.g. refs/tags/v1.0.0).
+    required: true
+  node-version:
+    description: Node version for setup-node.
+    default: lts/*
+  npm-global-version:
+    description: npm CLI semver range to install globally before publish.
+    default: ^11.10.0
+  registry-url:
+    description: Registry URL for setup-node and publish.
+    default: https://registry.npmjs.org
+  working-directory:
+    description: Directory containing package.json.
+    default: .
+  checkout-fetch-depth:
+    description: actions/checkout fetch-depth.
+    default: "1"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      with:
+        persist-credentials: false
+        fetch-depth: ${{ inputs.checkout-fetch-depth }}
+
+    - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+      with:
+        node-version: ${{ inputs.node-version }}
+        registry-url: ${{ inputs.registry-url }}
+        always-auth: false
+
+    # Dist-tags are not semver strings; version comes from package.json (synced here from the tag).
+    - name: Set version from release tag
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GIT_REF: ${{ inputs.git-ref }}
+      run: |
+        TAG="${GIT_REF#refs/tags/}"
+        if [[ "$TAG" != v* ]]; then
+          echo "Expected tag refs/tags/vX.Y.Z, got: $GIT_REF"
+          exit 1
+        fi
+        VERSION="${TAG#v}"
+        npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+    - name: Upgrade npm for trusted publishing
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npm install -g "npm@${{ inputs.npm-global-version }}"
+
+    - run: npm ci
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+
+    - run: npm test
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+
+    - run: npm publish
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
