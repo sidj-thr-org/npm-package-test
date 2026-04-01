@@ -19,4 +19,3 @@ jobs:
       - uses: sidj-thr-org/actions/.github/actions/npm-publish@main
         with:
           git-ref: ${{ github.ref }}
-        
