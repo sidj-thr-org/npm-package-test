@@ -14,9 +14,4 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
-    environment: release
-    steps: 
-      - uses: sidj-thr-org/actions/.github/actions/npm-publish@main
-        with:
-          git-ref: ${{ github.ref }}
+    uses: ./.github/workflows/publish.yml

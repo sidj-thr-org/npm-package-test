@@ -23,6 +23,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/npm-publish
+      - uses: sidj-thr-org/actions/.github/actions/npm-publish@main
         with:
           git-ref: ${{ github.ref }}
