@@ -15,3 +15,6 @@ permissions:
 jobs:
   publish:
     uses: ./.github/workflows/publish.yml
+    secrets: inherit
+    with:
+      tag: ${{ github.ref }}
