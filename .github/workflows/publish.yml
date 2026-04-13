@@ -1,7 +1,7 @@
 # Publishes via sidj-thr-org/actions publish-library-to-npm (token auth).
 # Repo secret NPM_TOKEN is required. npm "release" Environment should match your npm trust config.
 
-name: Publish Package
+name: Publish Package (NPM Trust)
 
 on:
   # push:
