@@ -7,7 +7,7 @@ on:
         description: Tag to create
         required: true
 
-perssions:
+permissions:
   contents: write 
 
 jobs:
