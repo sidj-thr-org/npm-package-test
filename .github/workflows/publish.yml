@@ -39,3 +39,6 @@ jobs:
         with:
           workdir: .
           tag: ${{ inputs.tag }}
+          create-tag: true
+          npm_package_scope: "@sidj-thr"
+          npm_package_access: "public"
