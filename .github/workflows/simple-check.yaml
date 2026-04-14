@@ -15,4 +15,9 @@ jobs:
       ABCD: ${{ secrets.abcd }}
     steps:
       - name: Print length
-        run: echo "abcd length: ${#ABCD:-0}"
+        run: |
+            if [ -z "$ABCD" ]; then
+              echo "ABCD is NOT set"
+            else
+              echo "ABCD is set"
+            fi
