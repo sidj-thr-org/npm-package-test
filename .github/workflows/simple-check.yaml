@@ -12,9 +12,7 @@ jobs:
   create-git-tag:
     runs-on: ubuntu-latest
     env:
-      abcd: ${{ secrets.abcd }}
+      ABCD: ${{ secrets.abcd }}
     steps:
       - name: Print length
-        env:
-          ABCD: ${{ env.abcd }}
         run: echo "abcd length: ${#ABCD}"
