@@ -14,5 +14,7 @@ jobs:
     env:
       abcd: ${{ secrets.abcd }}
     steps:
-      - run: |
-          echo "abcd: ${{ env.abcd }}"
+      - name: Print length
+        env:
+          ABCD: ${{ env.abcd }}
+        run: echo "abcd length: ${#ABCD}"
