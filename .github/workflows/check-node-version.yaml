@@ -1,0 +1,22 @@
+name: Setup Node and check versions
+description: Node LTS + fixed action versions
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check-node-version:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      with:
+        persist-credentials: false
+    - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+      with:
+        node-version: lts/*
+        registry-url: 'https://registry.npmjs.org'
+    - run: |
+        echo "Node.js version: $(node -v)"
+        echo "NPM version: $(npm -v)"
+        echo "npm config get registry: $(npm config get registry)"
+        echo "npm config get scope: $(npm config get scope)"
