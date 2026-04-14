@@ -15,4 +15,4 @@ jobs:
       ABCD: ${{ secrets.abcd }}
     steps:
       - name: Print length
-        run: echo "abcd length: ${#ABCD}"
+        run: echo "abcd length: ${#ABCD:-0}"
