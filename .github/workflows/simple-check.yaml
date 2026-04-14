@@ -12,7 +12,7 @@ jobs:
   create-git-tag:
     runs-on: ubuntu-latest
     env:
-      ABCD: ${{ secrets.abcd }}
+      ABCD: ${{ secrets.TOKEN }}
     steps:
       - name: Print length
         run: |
