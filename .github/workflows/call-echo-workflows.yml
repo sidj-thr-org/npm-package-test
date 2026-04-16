@@ -9,12 +9,12 @@ on:
         default: hello from caller
 
 jobs:
-  # echo_from_resuable_workflows_dir:
-  #   uses: ./.github/resuable-workflows/echo.yml@main
-  #   with:
-  #     message: ${{ inputs.message }}
-
-  echo_from_workflows_resuable_dir:
-    uses: ./.github/workflows/resuable-workflows/echo.yml
+  echo_from_resuable_workflows_dir:
+    uses: sidj-thr-org/workflows/.github/resuable-workflows/echo.yml@main
     with:
       message: ${{ inputs.message }}
+
+  # echo_from_workflows_resuable_dir:
+  #   uses: ./.github/workflows/resuable-workflows/echo.yml
+  #   with:
+  #     message: ${{ inputs.message }}
