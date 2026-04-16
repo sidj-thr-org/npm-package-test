@@ -1,0 +1,17 @@
+name: Echo (resuable-workflows)
+
+on:
+  workflow_call:
+    inputs:
+      message:
+        type: string
+        required: false
+        default: hello from .github/resuable-workflows
+
+jobs:
+  echo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo message
+        run: echo "${{ inputs.message }}"
+
