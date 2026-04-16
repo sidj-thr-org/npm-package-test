@@ -15,6 +15,6 @@ jobs:
   #     message: ${{ inputs.message }}
 
   echo_from_workflows_resuable_dir:
-    uses: ./.github/workflows/resuable-workflows/echo.yml@main
+    uses: ./.github/workflows/resuable-workflows/echo.yml
     with:
       message: ${{ inputs.message }}
