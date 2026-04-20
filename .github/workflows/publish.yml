@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: sidj-thr-org/actions/.github/actions/publish-library-to-npm-trust@main
+      - uses: sidj-thr-org/actions/.github/actions/publish-library-to-npm-trust@71ed7d32eb43a4744071e52491121976be30ce8c
         with:
           workdir: .
           tag: ${{ inputs.tag }}
