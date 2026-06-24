@@ -24,7 +24,7 @@ inputs:
 
 outputs:
   npm_published_version:
-    description: "Version published to npm (empty if already existed and skipped)."
+    description: "Version published to npm."
     value: ${{ steps.publish.outputs.npm_published_version }}
 
 runs:
@@ -45,21 +45,8 @@ runs:
         echo "name=$(node -p "require('./package.json').name")" >> "$GITHUB_OUTPUT"
         echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
-    - name: Check if version already published
-      id: check
-      shell: bash
-      run: |
-        set -euo pipefail
-        PKG="${{ steps.pkg.outputs.name }}@${{ steps.pkg.outputs.version }}"
-        if npm view "${PKG}" version >/dev/null 2>&1; then
-          echo "already_published=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "already_published=false" >> "$GITHUB_OUTPUT"
-        fi
-
     - name: Decide dist-tag (AUTO_DECIDE)
       id: tag-decision
-      if: steps.check.outputs.already_published == 'false'
       shell: bash
       env:
         INPUT_TAG:       ${{ inputs.tag }}
@@ -99,7 +86,6 @@ runs:
 
     - name: Publish to npm
       id: publish
-      if: steps.check.outputs.already_published == 'false'
       shell: bash
       working-directory: ${{ inputs.workdir }}
       env:
