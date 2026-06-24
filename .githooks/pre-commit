@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Guardrail: block commits when direnv (~/work/project/tether/.envrc) is not loaded.
+# .envrc sets GIT_AUTHOR_EMAIL — absence means identity would fall back to hostname.
+set -euo pipefail
+
+EXPECTED_EMAIL="siddharth.jain@tether.io"
+
+if [ -z "${GIT_AUTHOR_EMAIL:-}" ]; then
+  echo "ERROR: GIT_AUTHOR_EMAIL is not set." >&2
+  echo "       Load direnv first: cd ~/work/project/tether && direnv allow" >&2
+  exit 1
+fi
+
+if [ "${GIT_AUTHOR_EMAIL}" != "${EXPECTED_EMAIL}" ]; then
+  echo "ERROR: GIT_AUTHOR_EMAIL='${GIT_AUTHOR_EMAIL}' — expected '${EXPECTED_EMAIL}'." >&2
+  echo "       Ensure ~/work/project/tether/.envrc is loaded via direnv." >&2
+  exit 1
+fi
