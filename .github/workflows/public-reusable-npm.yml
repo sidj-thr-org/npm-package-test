@@ -1,0 +1,70 @@
+name: Reusable NPM Publish
+
+on:
+  workflow_call:
+    inputs:
+      caller_event_name:
+        description: "Pass github.event_name from the caller — needed to detect workflow_dispatch triggers."
+        required: false
+        type: string
+        default: ""
+      tag:
+        description: "npm dist-tag. Empty (default) triggers AUTO_DECIDE on release-* branches."
+        required: false
+        type: string
+        default: ""
+      workdir:
+        required: false
+        type: string
+        default: "."
+      npm_package_scope:
+        required: false
+        type: string
+        default: "@sidj-thr"
+      npm_package_access:
+        required: false
+        type: string
+        default: "public"
+    outputs:
+      published_version:
+        description: "Version published (empty if skipped)"
+        value: ${{ jobs.push-event.outputs.npm_published_version }}
+
+permissions:
+  contents: read
+
+jobs:
+  pull-request-event:
+    if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # 6.3.0
+        with:
+          node-version: "24.14.1"
+          cache: npm
+      - run: npm ci
+        shell: bash
+      - run: npm test
+        shell: bash
+
+  push-event:
+    if: github.event_name == 'push' || inputs.caller_event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      npm_published_version: ${{ steps.publish.outputs.npm_published_version }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/publish-library-to-npm-trust
+        id: publish
+        with:
+          tag: ${{ inputs.tag }}
+          workdir: ${{ inputs.workdir }}
+          npm_package_scope: ${{ inputs.npm_package_scope }}
+          npm_package_access: ${{ inputs.npm_package_access }}

@@ -1,0 +1,35 @@
+name: Create Release Tag
+
+on:
+  workflow_call:
+    inputs:
+      published_version:
+        description: "Version to tag (skips when empty)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  create-tag:
+    if: inputs.published_version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create git tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISHED_VERSION: ${{ inputs.published_version }}
+        run: |
+          set -euo pipefail
+          tag="v${PUBLISHED_VERSION}"
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" >/dev/null 2>&1; then
+            echo "Tag ${tag} already exists; skipping."
+            exit 0
+          fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f ref="refs/tags/${tag}" \
+            -f sha="${GITHUB_SHA}"
+          echo "Created tag ${tag} -> ${GITHUB_SHA}"

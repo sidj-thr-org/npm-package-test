@@ -1,0 +1,69 @@
+name: Trigger Reusable Lib (npm-package-test)
+
+on:
+  push:
+    branches:
+      - main
+      - release-*
+      - feature-*
+      - tmp-*
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-logic:
+    runs-on: ubuntu-latest
+    outputs:
+      publish_release: ${{ steps.logic.outputs.publish_release }}
+    steps:
+      - id: logic
+        shell: bash
+        run: |
+          set -euo pipefail
+          publish_release="false"
+          if [[ "${GITHUB_EVENT_NAME}" =~ ^(push|workflow_dispatch)$ ]] && \
+             [[ "${GITHUB_REF_NAME}" == release-* ]]; then
+            publish_release="true"
+          fi
+          echo "publish_release=${publish_release}" >> "$GITHUB_OUTPUT"
+
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ["20", "22"]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # 6.3.0
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+        shell: bash
+      - run: npm test
+        shell: bash
+
+  publish-release-npm:
+    needs: [ci, publish-logic]
+    if: needs.publish-logic.outputs.publish_release == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/public-reusable-npm.yml
+    with:
+      workdir: "."
+      npm_package_scope: "@sidj-thr"
+      npm_package_access: "public"
+      caller_event_name: ${{ github.event_name }}
+    secrets: inherit
+
+  create-tag:
+    needs: [publish-release-npm]
+    if: needs.publish-release-npm.result == 'success' && needs.publish-release-npm.outputs.published_version != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/create-release-tag.yml
+    with:
+      published_version: ${{ needs.publish-release-npm.outputs.published_version }}
