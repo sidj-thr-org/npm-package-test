@@ -52,7 +52,6 @@ runs:
         set -euo pipefail
         PKG="${{ steps.pkg.outputs.name }}@${{ steps.pkg.outputs.version }}"
         if npm view "${PKG}" version >/dev/null 2>&1; then
-          echo "Version ${{ steps.pkg.outputs.version }} already published for ${{ steps.pkg.outputs.name }}, skipping"
           echo "already_published=true" >> "$GITHUB_OUTPUT"
         else
           echo "already_published=false" >> "$GITHUB_OUTPUT"
@@ -108,9 +107,7 @@ runs:
         INPUT_ACCESS: ${{ inputs.npm_package_access }}
       run: |
         set -euo pipefail
-        if [ "${INPUT_ACCESS}" = "public" ]; then
-          npm publish --tag "${RESOLVED_TAG}" --access "${INPUT_ACCESS}" --provenance
-        else
-          npm publish --tag "${RESOLVED_TAG}" --access "${INPUT_ACCESS}"
-        fi
+        PROVENANCE=""
+        [ "${INPUT_ACCESS}" = "public" ] && PROVENANCE="--provenance"
+        npm publish --tag "${RESOLVED_TAG}" --access "${INPUT_ACCESS}" ${PROVENANCE}
         echo "npm_published_version=${{ steps.pkg.outputs.version }}" >> "$GITHUB_OUTPUT"
