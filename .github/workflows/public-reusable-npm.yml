@@ -24,25 +24,46 @@ on:
 jobs:
   pull-request-event:
     runs-on: ubuntu-latest
+    environment: npm
     if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target' || inputs.debug_mode
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Echo Step
+        run: |
+          echo "Processing ${{ github.event_name }} event"
+          echo "PR Number: ${{ github.event.pull_request.number }}"
+          echo "PR Title: ${{ github.event.pull_request.title }}"
+          echo "repository: ${{ github.event.pull_request.head.repo.full_name }}"
+          echo "ref: ${{ github.event.pull_request.head.ref }}"
+          echo "workdir: ${{ inputs.workdir }}"
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
         with:
+          token: ${{ secrets.PAT_TOKEN }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # 6.3.0
+      - name: Enable Socket Firewall Guard
+        uses: ./.github/actions/sfw-guard
         with:
-          node-version: "24.14.1"
-          cache: npm
+          firewall-mode: firewall-free
+          clear-caches: "false"
+          managers: npm,pip,pip3,uv,cargo
+          workdir: ${{ inputs.workdir }}
 
-      - name: Install dependencies
-        working-directory: ${{ inputs.workdir }}
-        run: npm ci
+      - name: Run lint and unit tests
+        uses: ./.github/actions/run-lint-and-unit-tests
+        with:
+          workdir: ${{ inputs.workdir }}
 
-      - name: Lint and unit tests
-        working-directory: ${{ inputs.workdir }}
-        run: npm test
+      - name: Call Publish NPM Action
+        uses: ./.github/actions/publish-library-to-npm-trust
+        with:
+          tag: "dev"
+          workdir: ${{ inputs.workdir }}
 
   push-event:
     runs-on: ubuntu-latest
@@ -52,11 +73,18 @@ jobs:
       npm_published_version: ${{ steps.publish-npm.outputs.npm_published_version }}
     permissions:
       contents: read
+      packages: write
       id-token: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+
+      - name: Enable Socket Firewall Guard
+        uses: ./.github/actions/sfw-guard
         with:
-          fetch-depth: 0
+          firewall-mode: firewall-free
+          clear-caches: "false"
+          managers: npm,pip,pip3,uv,cargo
+          workdir: ${{ inputs.workdir }}
 
       - name: Publish to NPM
         id: publish-npm

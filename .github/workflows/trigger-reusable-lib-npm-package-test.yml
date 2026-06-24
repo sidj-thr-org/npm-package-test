@@ -1,4 +1,4 @@
-name: Trigger Reusable Lib (npm-package-test)
+name: General CI/CD (npm-package-test)
 
 on:
   push:
@@ -9,10 +9,53 @@ on:
       - tmp-*
   workflow_dispatch:
 
+env:
+  WORKDIR: .
+
 permissions:
   contents: read
 
 jobs:
+  label-gate:
+    name: Authorise (label-gate)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      authorised: ${{ steps.gate.outputs.authorised }}
+    steps:
+      - name: Checkout (label-gate action only)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/actions/label-gate
+          sparse-checkout-cone-mode: false
+      - name: Run label-gate
+        id: gate
+        uses: ./.github/actions/label-gate
+        with:
+          github-token: ${{ secrets.PAT_TOKEN }}
+
+  release-merge-guard:
+    name: Release Merge Guard
+    if: >-
+      github.event_name == 'push' && startsWith(github.ref_name, 'release-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/release-merge-guard
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          base-ref: ${{ github.ref_name }}
+          base-sha: ${{ github.event.before }}
+          head-sha: ${{ github.sha }}
+          package-slug: npm-package-test
+          package-json-path: package.json
+          changelog-path: CHANGELOG.md
+
   publish-logic:
     runs-on: ubuntu-latest
     outputs:
@@ -47,7 +90,9 @@ jobs:
           fi
 
           gpr_tag="dev"
-          if [[ "$ref_name" == feature-* ]]; then
+          if [ "$ref_name" = "main" ]; then
+            gpr_tag="dev"
+          elif [[ "$ref_name" == feature-* ]]; then
             gpr_tag="feature"
           elif [[ "$ref_name" == tmp-* ]]; then
             gpr_tag="temp"
@@ -61,33 +106,52 @@ jobs:
 
   lint-and-test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: ["20", "22"]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # 6.3.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+      - uses: ./.github/actions/run-lint-and-unit-tests
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
-      - run: npm ci
-        shell: bash
-      - run: npm test
-        shell: bash
+          workdir: ${{ env.WORKDIR }}
+
+  publish-main-gpr-dev:
+    needs:
+      - lint-and-test
+      - publish-logic
+      - label-gate
+    if: needs.label-gate.outputs.authorised == 'true' && (needs.publish-logic.outputs.publish_main == 'true')
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        with:
+          fetch-depth: 0
+      - name: Publish to GitHub Packages (dev)
+        uses: ./.github/actions/publish-library-to-gpr
+        with:
+          secret-token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.publish-logic.outputs.gpr_tag }}
+          workdir: ${{ env.WORKDIR }}
+          name-suffix: "-mono"
 
   publish-release-npm:
     needs:
       - lint-and-test
       - publish-logic
-    if: needs.publish-logic.outputs.publish_release == 'true'
+      - release-merge-guard
+      - label-gate
     permissions:
       contents: read
+      packages: write
       id-token: write
+    if: |-
+      needs.label-gate.outputs.authorised == 'true' && (always() && needs.publish-logic.outputs.publish_release == 'true' && (needs.release-merge-guard.result == 'success' || needs.release-merge-guard.result == 'skipped'))
     uses: ./.github/workflows/public-reusable-npm.yml
+    secrets: inherit
     with:
       workdir: "."
       caller_event_name: ${{ github.event_name }}
-    secrets: inherit
 
   create-tag:
     needs: [publish-release-npm]
@@ -98,3 +162,49 @@ jobs:
     with:
       repo_name: "npm-package-test"
       published_version: ${{ needs.publish-release-npm.outputs.published_version }}
+
+  publish-feature-gpr:
+    needs:
+      - lint-and-test
+      - publish-logic
+      - label-gate
+    if: needs.label-gate.outputs.authorised == 'true' && (needs.publish-logic.outputs.publish_feature == 'true')
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        with:
+          fetch-depth: 0
+      - name: Publish to GitHub Packages (feature)
+        uses: ./.github/actions/publish-library-to-gpr
+        with:
+          secret-token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.publish-logic.outputs.gpr_tag }}
+          workdir: ${{ env.WORKDIR }}
+          name-suffix: "-mono"
+
+  publish-tmp-gpr:
+    needs:
+      - lint-and-test
+      - publish-logic
+      - label-gate
+    if: needs.label-gate.outputs.authorised == 'true' && (needs.publish-logic.outputs.publish_tmp == 'true')
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        with:
+          fetch-depth: 0
+      - name: Publish to GitHub Packages (tmp)
+        uses: ./.github/actions/publish-library-to-gpr
+        with:
+          secret-token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.publish-logic.outputs.gpr_tag }}
+          workdir: ${{ env.WORKDIR }}
+          name-suffix: "-mono"

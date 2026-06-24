@@ -1,0 +1,156 @@
+name: GPR Publish
+description: "Publish a package to GitHub Packages (GPR) via npm"
+
+inputs:
+  secret-token:
+    description: "GitHub Packages token (NODE_AUTH_TOKEN) used for publishing"
+    required: true
+  pat-token:
+    description: "PAT token"
+    required: false
+  release:
+    description: "Use tag. Release stream, temporary here for compatibility with old workflows"
+    required: false
+  tag:
+    description: "Release Stream (npm tag)"
+    required: false
+  path:
+    description: "Path to artifact/package directory to publish (optional; falls back to workdir)"
+    required: false
+  workdir:
+    description: "Directory containing package.json (default '.')"
+    default: "."
+    type: string
+  name-suffix:
+    description: "Optional suffix to append to package name (e.g. -mono)"
+    required: false
+    default: ""
+
+outputs:
+  gpr_published_version:
+    description: "The version that was published to GitHub Packages"
+    value: ${{ steps.gpr_publish.outputs.gpr_published_version }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # 6.3.0
+      with:
+        node-version: lts/*
+        registry-url: https://npm.pkg.github.com/
+        scope: "@sidj-thr-org"
+
+    - name: Resolve publish directory
+      id: resolve_dir
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        dir="${{ inputs.path }}"
+        if [[ -z "$dir" ]]; then
+          dir="${{ inputs.workdir }}"
+        fi
+
+        dir="${dir%/}"
+        [[ -z "$dir" ]] && dir="."
+
+        if [[ "$dir" == /* || "$dir" == *".."* ]]; then
+          echo "ERROR: invalid dir: $dir" >&2
+          exit 1
+        fi
+        if [[ ! -d "$dir" ]]; then
+          echo "ERROR: dir not found: $dir" >&2
+          exit 1
+        fi
+
+        echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
+    - name: Determine dist-tag
+      id: determine_tag
+      working-directory: ${{ steps.resolve_dir.outputs.dir }}
+      shell: bash
+      run: |
+        TAG="${{ inputs.tag }}"
+        RELEASE="${{ inputs.release }}"
+
+        if [ -z "$RELEASE" ]; then
+          RELEASE="tmp"
+        fi
+        if [ -z "$TAG" ]; then
+          TAG=$RELEASE
+        fi
+
+        if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.ref_name }}" == release-* ]]; then
+            TAG="latest"
+          fi
+        fi
+
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+    - name: Determine version
+      id: determine_version
+      working-directory: ${{ steps.resolve_dir.outputs.dir }}
+      shell: bash
+      run: |
+        SHORT_SHA=$(git rev-parse --short HEAD)
+        PACKAGE_VERSION=$(node -p "require('./package.json').version")
+        TAG="${{ steps.determine_tag.outputs.tag }}"
+        PR_NUM=""
+        if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "pull_request_target" ]; then
+          PR_NUM="${{ github.event.pull_request.number }}"
+        fi
+
+        if [ "$TAG" = "latest" ]; then
+          VERSION="${PACKAGE_VERSION}"
+        elif [ -n "$PR_NUM" ]; then
+          VERSION="${PACKAGE_VERSION}-tmp.pr-${PR_NUM}.runid-${GITHUB_RUN_ID}"
+        else
+          VERSION="${PACKAGE_VERSION}-tmp.runid-${GITHUB_RUN_ID}"
+        fi
+
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Maybe update package version
+      shell: bash
+      working-directory: ${{ steps.resolve_dir.outputs.dir }}
+      if: steps.determine_version.outputs.version != steps.determine_version.outputs.package_version
+      run: |
+        npm version ${{ steps.determine_version.outputs.version }} --no-git-tag-version --allow-same-version
+
+    - name: Normalize package name for GitHub Packages publishing
+      id: normalize_name
+      shell: bash
+      working-directory: ${{ steps.resolve_dir.outputs.dir }}
+      run: |
+        set -euo pipefail
+        PACKAGE_NAME=$(node -p "require('./package.json').name")
+        SUFFIX="${{ inputs.name-suffix }}"
+
+        # Rewrite scope from @sidj-thr to @sidj-thr-org for GPR
+        if [[ "$PACKAGE_NAME" == @sidj-thr/* ]]; then
+          PACKAGE_NAME="${PACKAGE_NAME/@sidj-thr\//@sidj-thr-org/}"
+        fi
+
+        if [[ -n "$SUFFIX" ]]; then
+          SCOPE="${PACKAGE_NAME%%/*}"
+          NAME="${PACKAGE_NAME#*/}"
+          PACKAGE_NAME="${SCOPE}/${NAME}${SUFFIX}"
+        fi
+
+        tmpfile=$(mktemp)
+        jq --arg new_name "$PACKAGE_NAME" '.name = $new_name' package.json > "$tmpfile" && mv "$tmpfile" package.json
+
+        echo "published_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
+
+    - name: Publish to GitHub Packages (GPR)
+      id: gpr_publish
+      working-directory: ${{ steps.resolve_dir.outputs.dir }}
+      shell: bash
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.secret-token }}
+      run: |
+        set -euo pipefail
+        npm publish --tag ${{ steps.determine_tag.outputs.tag }}
+        echo "gpr_published_version=${{ steps.determine_version.outputs.version }}" >> $GITHUB_OUTPUT
