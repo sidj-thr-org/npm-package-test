@@ -32,7 +32,7 @@ jobs:
         id: gate
         uses: ./.github/actions/label-gate
         with:
-          github-token: ${{ secrets.PAT_TOKEN }}
+          github-token: ${{ secrets.TOKEN }}
 
   publish-logic:
     runs-on: ubuntu-latest

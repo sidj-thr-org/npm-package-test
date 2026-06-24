@@ -35,7 +35,7 @@ jobs:
         id: gate
         uses: ./.github/actions/label-gate
         with:
-          github-token: ${{ secrets.PAT_TOKEN }}
+          github-token: ${{ secrets.TOKEN }}
 
   release-merge-guard:
     name: Release Merge Guard
