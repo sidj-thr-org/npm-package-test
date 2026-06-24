@@ -55,7 +55,14 @@ async function main() {
   const label = getInput('label') || 'verified';
   const teams = parseList(getInput('teams'));
   const users = parseList(getInput('users'));
-  const token = getInput('github-token', { required: true });
+  const token = getInput('github-token');
+
+  // Token is only needed for PR events (team membership checks, label strip).
+  // Trusted events (push, workflow_dispatch, etc.) auto-authorise without it.
+  const isPrEvent = ['pull_request', 'pull_request_target'].includes(eventName);
+  if (isPrEvent && !token) {
+    throw new Error("required input 'github-token' is missing for PR event");
+  }
 
   if (teams.length === 0 && users.length === 0) {
     warning(

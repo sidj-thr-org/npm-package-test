@@ -32,11 +32,10 @@ inputs:
   github-token:
     description: >
       PAT with `read:org` (for team membership lookups) and write access
-      to pull-request labels (for stripping the gate label on synchronize
-      from non-trusted actors). Exposed as an input so swapping to a
-      fine-grained PAT or GitHub App is a secret rotation, not a workflow
-      edit.
-    required: true
+      to pull-request labels. Required for PR events; not needed for
+      trusted events (push, workflow_dispatch) which auto-authorise.
+    required: false
+    default: ""
 
 outputs:
   authorised:
