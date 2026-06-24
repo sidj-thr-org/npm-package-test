@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  ci:
+  lint-and-test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -27,7 +27,7 @@ jobs:
         shell: bash
 
   publish:
-    needs: [ci]
+    needs: [lint-and-test]
     runs-on: ubuntu-latest
     environment: npm
     permissions:
@@ -53,4 +53,5 @@ jobs:
       contents: write
     uses: ./.github/workflows/create-release-tag.yml
     with:
+      repo_name: "npm-package-test"
       published_version: ${{ needs.publish.outputs.published_version }}

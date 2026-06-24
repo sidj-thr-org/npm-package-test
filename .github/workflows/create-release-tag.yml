@@ -1,10 +1,21 @@
 name: Create Release Tag
 
+# Creates a git tag for a published package WITHOUT creating a GitHub Release.
+# Tag format: '<repo_name>-v<published_version>' unless tag_name is set explicitly.
+
 on:
   workflow_call:
     inputs:
+      repo_name:
+        description: "Tag prefix; tag is '<repo_name>-v<published_version>' unless tag_name is set"
+        required: false
+        type: string
       published_version:
-        description: "Version to tag (skips when empty)"
+        description: "Version published in the publish workflow (tagging is skipped when empty)"
+        required: false
+        type: string
+      tag_name:
+        description: "Optional explicit tag name; overrides the '<repo_name>-v<published_version>' default"
         required: false
         type: string
 
@@ -21,15 +32,28 @@ jobs:
       - name: Create git tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ inputs.repo_name }}
           PUBLISHED_VERSION: ${{ inputs.published_version }}
+          TAG_OVERRIDE: ${{ inputs.tag_name }}
+          TARGET_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          tag="v${PUBLISHED_VERSION}"
+
+          if [ -n "${TAG_OVERRIDE}" ]; then
+            tag="${TAG_OVERRIDE}"
+          elif [ -n "${REPO_NAME}" ]; then
+            tag="${REPO_NAME}-v${PUBLISHED_VERSION}"
+          else
+            tag="v${PUBLISHED_VERSION}"
+          fi
+
           if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" >/dev/null 2>&1; then
-            echo "Tag ${tag} already exists; skipping."
+            echo "Tag ${tag} already exists; nothing to do."
             exit 0
           fi
+
           gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
             -f ref="refs/tags/${tag}" \
-            -f sha="${GITHUB_SHA}"
-          echo "Created tag ${tag} -> ${GITHUB_SHA}"
+            -f sha="${TARGET_SHA}"
+
+          echo "Created tag ${tag} -> ${TARGET_SHA}"

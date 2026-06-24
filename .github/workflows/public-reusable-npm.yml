@@ -1,70 +1,65 @@
-name: Reusable NPM Publish
+name: General Library CI/CD Workflow
+# Shared by multiple projects
 
 on:
   workflow_call:
     inputs:
+      debug_mode:
+        required: false
+        type: boolean
+        default: false
       caller_event_name:
-        description: "Pass github.event_name from the caller — needed to detect workflow_dispatch triggers."
+        description: "Event name from the calling workflow"
         required: false
         type: string
-        default: ""
-      tag:
-        description: "npm dist-tag. Empty (default) triggers AUTO_DECIDE on release-* branches."
-        required: false
-        type: string
-        default: ""
       workdir:
         required: false
         type: string
         default: "."
-      npm_package_scope:
-        required: false
-        type: string
-        default: "@sidj-thr"
-      npm_package_access:
-        required: false
-        type: string
-        default: "public"
     outputs:
       published_version:
-        description: "Version published (empty if skipped)"
+        description: "The version published to npm (empty if skipped)"
         value: ${{ jobs.push-event.outputs.npm_published_version }}
-
-permissions:
-  contents: read
 
 jobs:
   pull-request-event:
-    if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target' || inputs.debug_mode
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # 6.3.0
         with:
           node-version: "24.14.1"
           cache: npm
-      - run: npm ci
-        shell: bash
-      - run: npm test
-        shell: bash
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.workdir }}
+        run: npm ci
+
+      - name: Lint and unit tests
+        working-directory: ${{ inputs.workdir }}
+        run: npm test
 
   push-event:
-    if: github.event_name == 'push' || inputs.caller_event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: npm
+    if: github.event_name == 'push' || inputs.caller_event_name == 'workflow_dispatch' || inputs.debug_mode
+    outputs:
+      npm_published_version: ${{ steps.publish-npm.outputs.npm_published_version }}
     permissions:
       contents: read
       id-token: write
-    outputs:
-      npm_published_version: ${{ steps.publish.outputs.npm_published_version }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/publish-library-to-npm-trust
-        id: publish
+
+      - name: Publish to NPM
+        id: publish-npm
+        uses: ./.github/actions/publish-library-to-npm-trust
         with:
-          tag: ${{ inputs.tag }}
           workdir: ${{ inputs.workdir }}
-          npm_package_scope: ${{ inputs.npm_package_scope }}
-          npm_package_access: ${{ inputs.npm_package_access }}
