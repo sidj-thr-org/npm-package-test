@@ -1,6 +1,6 @@
-name: NPM trusted publish
+name: Publish NPM
 description: >
-  OIDC npm publish with AUTO_DECIDE dist-tag routing (ported from qvac token action).
+  OIDC npm publish for @sidj-thr/* packages with AUTO_DECIDE dist-tag routing.
   Backward compatible: callers can omit tag and backport routing is handled automatically.
 
 inputs:
@@ -13,14 +13,6 @@ inputs:
   workdir:
     description: "Directory containing package.json."
     required: true
-  npm_package_scope:
-    description: "npm scope passed to setup-node (e.g. @sidj-thr)."
-    required: false
-    default: "@sidj-thr"
-  npm_package_access:
-    description: "npm publish access: public or restricted. Provenance requires public."
-    required: false
-    default: "public"
 
 outputs:
   npm_published_version:
@@ -32,9 +24,9 @@ runs:
   steps:
     - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # 6.3.0
       with:
-        node-version: "24.14.1"
+        node-version: "24.14.1" # installs npm version 11.11.0
         registry-url: https://registry.npmjs.org/
-        scope: ${{ inputs.npm_package_scope }}
+        scope: "@sidj-thr"
 
     - name: Read package info
       id: pkg
@@ -83,10 +75,7 @@ runs:
       working-directory: ${{ inputs.workdir }}
       env:
         RESOLVED_TAG: ${{ steps.tag-decision.outputs.tag }}
-        INPUT_ACCESS: ${{ inputs.npm_package_access }}
       run: |
         set -euo pipefail
-        PROVENANCE=""
-        [ "${INPUT_ACCESS}" = "public" ] && PROVENANCE="--provenance"
-        npm publish --tag "${RESOLVED_TAG}" --access "${INPUT_ACCESS}" ${PROVENANCE}
+        npm publish --tag "${RESOLVED_TAG}" --access public --provenance
         echo "npm_published_version=${{ steps.pkg.outputs.version }}" >> "$GITHUB_OUTPUT"
