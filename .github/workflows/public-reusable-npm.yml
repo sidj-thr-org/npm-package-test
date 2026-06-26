@@ -84,18 +84,18 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
+      - name: Determine dist-tag
+        id: tag
+        uses: ./.github/actions/dist-tag-determination
+        with:
+          workdir: ${{ inputs.workdir }}
+
       - name: Enable Socket Firewall Guard
         uses: ./.github/actions/sfw-guard
         with:
           firewall-mode: firewall-free
           clear-caches: "false"
           managers: npm,pip,pip3,uv,cargo
-          workdir: ${{ inputs.workdir }}
-
-      - name: Determine dist-tag
-        id: tag
-        uses: ./.github/actions/dist-tag-determination
-        with:
           workdir: ${{ inputs.workdir }}
 
       - name: Evaluate publish gate

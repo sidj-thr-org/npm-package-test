@@ -1,0 +1,91 @@
+name: Test npm-publish-gate
+
+on:
+  workflow_dispatch:
+
+# Runs on whichever branch is dispatched:
+#   - release-*  → prod-tag-pass test passes
+#   - non-release (main, feature-*, etc.) → prod-tag-fail test passes
+# Run twice: once from a release-* branch, once from main.
+
+jobs:
+  # ── Gate: dev tag ─────────────────────────────────────────────────────────
+  gate-dev-skip:
+    name: "Gate: dev tag → should_publish=false"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+      - name: Run gate with tag=dev
+        id: gate
+        uses: ./.github/actions/npm-publish-gate
+        with:
+          tag: "dev"
+      - name: Assert should_publish=false
+        env:
+          RESULT: ${{ steps.gate.outputs.should_publish }}
+        run: |
+          set -euo pipefail
+          if [ "${RESULT}" != "false" ]; then
+            echo "::error::Expected should_publish=false for dev tag, got '${RESULT}'"
+            exit 1
+          fi
+          echo "✅ dev tag → should_publish=false (graceful skip)"
+
+  # ── Gate: tmp tag ─────────────────────────────────────────────────────────
+  gate-tmp-skip:
+    name: "Gate: tmp tag → should_publish=false"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+      - name: Run gate with tag=tmp
+        id: gate
+        uses: ./.github/actions/npm-publish-gate
+        with:
+          tag: "tmp"
+      - name: Assert should_publish=false
+        env:
+          RESULT: ${{ steps.gate.outputs.should_publish }}
+        run: |
+          set -euo pipefail
+          if [ "${RESULT}" != "false" ]; then
+            echo "::error::Expected should_publish=false for tmp tag, got '${RESULT}'"
+            exit 1
+          fi
+          echo "✅ tmp tag → should_publish=false (graceful skip)"
+
+  # ── Gate: prod tag on current branch ──────────────────────────────────────
+  # Dispatch from a release-* branch  → should_publish=true  (pass)
+  # Dispatch from main/feature-*      → hard-fails the gate step (caught below)
+  gate-prod-tag:
+    name: "Gate: prod tag on ${{ github.ref_name }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+      - name: Run gate with tag=latest
+        id: gate
+        continue-on-error: true
+        uses: ./.github/actions/npm-publish-gate
+        with:
+          tag: "latest"
+      - name: Assert outcome based on branch
+        env:
+          OUTCOME: ${{ steps.gate.outcome }}
+          RESULT:  ${{ steps.gate.outputs.should_publish }}
+          REF:     ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [[ "${REF}" == refs/heads/release-* ]]; then
+            if [ "${OUTCOME}" = "success" ] && [ "${RESULT}" = "true" ]; then
+              echo "✅ release-* branch + prod tag → should_publish=true"
+            else
+              echo "::error::Expected success + should_publish=true on release-* branch, got outcome=${OUTCOME} should_publish=${RESULT}"
+              exit 1
+            fi
+          else
+            if [ "${OUTCOME}" = "failure" ]; then
+              echo "✅ non-release branch + prod tag → gate hard-failed (expected)"
+            else
+              echo "::error::Expected gate hard-fail on non-release branch '${REF}', got outcome=${OUTCOME} should_publish=${RESULT}"
+              exit 1
+            fi
+          fi
