@@ -1,9 +1,9 @@
 name: NPM Publish (OIDC)
 description: >
-  Minimal OIDC npm publish for @sidj-thr/* packages. Asserts release-* branch
-  (defense-in-depth), configures setup-node for token injection, and publishes
-  with provenance. Callers MUST resolve the dist-tag using dist-tag-determination
-  before invoking this action.
+  Minimal OIDC npm publish for @sidj-thr/* packages. Configures setup-node for
+  OIDC token injection and publishes with provenance. Callers MUST pass the tag
+  through npm-publish-gate first; this action is a pure publish step with no
+  branch or tag assertions.
 
 inputs:
   workdir:
@@ -25,17 +25,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Assert release branch
-      shell: bash
-      env:
-        GHA_REF: ${{ github.ref }}
-      run: |
-        set -euo pipefail
-        if [[ "${GHA_REF}" != refs/heads/release-* ]]; then
-          echo "::error::npm-publish must only be invoked from a release-* branch (got: ${GHA_REF}). Callers must gate on release-* refs."
-          exit 1
-        fi
-
     - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # 6.3.0
       with:
         node-version: "24.14.1"
