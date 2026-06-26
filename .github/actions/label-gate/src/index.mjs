@@ -80,7 +80,11 @@ async function main() {
     throw new Error('GITHUB_EVENT_PATH is required for PR events');
   }
 
-  const client = new GitHubClient({ token, repo });
+  // Only construct the real client for PR events; trusted events (push,
+  // workflow_dispatch, etc.) return early in gate() without any API calls.
+  const client = isPrEvent
+    ? new GitHubClient({ token, repo })
+    : { isTeamMember: async () => false, findLabelApplier: async () => null, stripLabel: async () => false };
 
   const decision = await gate({
     eventName,
