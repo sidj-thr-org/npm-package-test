@@ -42,7 +42,7 @@ jobs:
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
         with:
-          token: ${{ secrets.TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
 
@@ -59,7 +59,7 @@ jobs:
         with:
           workdir: ${{ inputs.workdir }}
 
-      - name: Call Publish NPM Action
+      - name: Publish NPM (dev tag for PR preview)
         uses: ./.github/actions/publish-library-to-npm-trust
         with:
           tag: "dev"
@@ -86,8 +86,15 @@ jobs:
           managers: npm,pip,pip3,uv,cargo
           workdir: ${{ inputs.workdir }}
 
+      - name: Determine dist-tag
+        id: tag
+        uses: ./.github/actions/dist-tag-determination
+        with:
+          workdir: ${{ inputs.workdir }}
+
       - name: Publish to NPM
         id: publish-npm
         uses: ./.github/actions/publish-library-to-npm-trust
         with:
           workdir: ${{ inputs.workdir }}
+          tag: ${{ steps.tag.outputs.tag }}
