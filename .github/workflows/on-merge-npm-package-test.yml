@@ -91,7 +91,7 @@ jobs:
         with:
           workdir: "."
 
-  publish-npm:
+  publish-release-npm:
     needs:
       - lint-and-test
       - publish-logic
@@ -99,43 +99,23 @@ jobs:
       - label-gate
     if: >-
       needs.label-gate.outputs.authorised == 'true' && (!cancelled() && needs.lint-and-test.result == 'success' && needs.publish-logic.outputs.publish_release == 'true' && (needs.release-merge-guard.result == 'success' || needs.release-merge-guard.result == 'skipped'))
-    runs-on: ubuntu-latest
-    environment: npm
-    outputs:
-      published_version: ${{ steps.publish.outputs.npm_published_version }}
     permissions:
       contents: read
       packages: write
       id-token: write
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
-        with:
-          fetch-depth: 0
-      - name: Determine dist-tag
-        id: tag
-        uses: ./.github/actions/dist-tag-determination
-        with:
-          workdir: "."
-      - name: Evaluate publish gate
-        id: gate
-        uses: ./.github/actions/npm-publish-gate
-        with:
-          tag: ${{ steps.tag.outputs.tag }}
-      - name: Publish to NPM
-        id: publish
-        if: steps.gate.outputs.should_publish == 'true'
-        uses: ./.github/actions/publish-library-to-npm-trust
-        with:
-          workdir: "."
-          tag: ${{ steps.tag.outputs.tag }}
+    uses: ./.github/workflows/public-reusable-npm.yml
+    secrets: inherit
+    with:
+      workdir: "."
+      caller_event_name: ${{ github.event_name }}
 
   create-tag:
-    needs: [publish-npm]
+    needs: [publish-release-npm]
     if: >-
-      !cancelled() && needs.publish-npm.result == 'success' && needs.publish-npm.outputs.published_version != ''
+      !cancelled() && needs.publish-release-npm.result == 'success' && needs.publish-release-npm.outputs.published_version != ''
     permissions:
       contents: write
     uses: ./.github/workflows/create-release-tag.yml
     with:
       repo_name: "npm-package-test"
-      published_version: ${{ needs.publish-npm.outputs.published_version }}
+      published_version: ${{ needs.publish-release-npm.outputs.published_version }}

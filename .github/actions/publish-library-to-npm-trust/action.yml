@@ -1,9 +1,8 @@
 name: NPM Publish (OIDC)
 description: >
-  Minimal OIDC npm publish for @sidj-thr/* packages. Configures setup-node for
-  OIDC token injection and publishes with provenance. Callers MUST pass the tag
-  through npm-publish-gate first; this action is a pure publish step with no
-  branch or tag assertions.
+  Minimal OIDC npm publish for @sidj-thr/* packages. Internally runs npm-publish-gate
+  to enforce release-* branch requirements and gracefully skip dev/tmp tags.
+  Callers MUST resolve the dist-tag via dist-tag-determination first.
 
 inputs:
   workdir:
@@ -19,20 +18,28 @@ inputs:
 
 outputs:
   npm_published_version:
-    description: "Version published to npm."
+    description: "Version published to npm. Empty if publishing was skipped by the gate."
     value: ${{ steps.publish.outputs.npm_published_version }}
 
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # 6.3.0
+    - name: Evaluate publish gate
+      id: gate
+      uses: ./.github/actions/npm-publish-gate
       with:
-        node-version: "24.14.1"
+        tag: ${{ inputs.tag }}
+
+    - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # 6.3.0
+      if: steps.gate.outputs.should_publish == 'true'
+      with:
+        node-version: "24.14.1" # installs npm version 11.11.0
         registry-url: https://registry.npmjs.org/
         scope: "@sidj-thr"
 
     - name: Publish to npm
       id: publish
+      if: steps.gate.outputs.should_publish == 'true'
       shell: bash
       working-directory: ${{ inputs.workdir }}
       env:
