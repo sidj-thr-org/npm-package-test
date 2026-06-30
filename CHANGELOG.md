@@ -2,6 +2,12 @@
 
 All notable changes to `@sidj-thr/npm-package-test` are documented here.
 
+## [0.38.0] - 2026-07-01
+
+### Changed
+
+- Bump version to 0.38.0 for clean Phase B validation publish.
+
 ## [0.37.0] - 2026-06-30
 
 ### Changed
