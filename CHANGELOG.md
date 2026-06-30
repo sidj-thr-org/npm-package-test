@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.36.2] - 2026-06-30
+
+### Changed
+- Re-publish after version conflict (0.36.1 was already published by first CI run).
+
 ## [0.36.1] - 2026-06-30
 
 ### Changed
