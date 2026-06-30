@@ -80,7 +80,7 @@ jobs:
 
       - name: Determine dist-tag
         id: dist-tag
-        uses: sidj-thr-org/actions/dist-tag-determination@0.1.0
+        uses: sidj-thr-org/actions/.github/actions/dist-tag-determination@0.1.0
         with:
           workdir: ${{ inputs.workdir }}
 
@@ -94,7 +94,7 @@ jobs:
 
       - name: Publish to npm
         id: publish-npm
-        uses: sidj-thr-org/actions/publish-library-to-npm@0.1.0
+        uses: sidj-thr-org/actions/.github/actions/publish-library-to-npm@0.1.0
         with:
           workdir: ${{ inputs.workdir }}
           tag: ${{ steps.dist-tag.outputs.tag }}
