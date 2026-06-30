@@ -141,17 +141,39 @@ jobs:
       - publish-logic
       - release-merge-guard
       - label-gate
+    if: |-
+      needs.label-gate.outputs.authorised == 'true' && (always() && needs.publish-logic.outputs.publish_release == 'true' && (needs.release-merge-guard.result == 'success' || needs.release-merge-guard.result == 'skipped'))
+    runs-on: ubuntu-latest
+    environment: npm
     permissions:
       contents: read
       packages: write
       id-token: write
-    if: |-
-      needs.label-gate.outputs.authorised == 'true' && (always() && needs.publish-logic.outputs.publish_release == 'true' && (needs.release-merge-guard.result == 'success' || needs.release-merge-guard.result == 'skipped'))
-    uses: ./.github/workflows/public-reusable-npm.yml
-    secrets: inherit
-    with:
-      workdir: "."
-      caller_event_name: ${{ github.event_name }}
+    outputs:
+      published_version: ${{ steps.publish.outputs.npm_published_version }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+
+      - name: Determine dist-tag
+        id: tag
+        uses: ./.github/actions/dist-tag-determination
+        with:
+          workdir: ${{ env.WORKDIR }}
+
+      - name: Enable Socket Firewall Guard
+        uses: ./.github/actions/sfw-guard
+        with:
+          firewall-mode: firewall-free
+          clear-caches: "false"
+          managers: npm,pip,pip3,uv,cargo
+          workdir: ${{ env.WORKDIR }}
+
+      - name: Publish to npm
+        id: publish
+        uses: ./.github/actions/publish-library-to-npm-trust
+        with:
+          workdir: ${{ env.WORKDIR }}
+          tag: ${{ steps.tag.outputs.tag }}
 
   create-tag:
     needs: [publish-release-npm]
