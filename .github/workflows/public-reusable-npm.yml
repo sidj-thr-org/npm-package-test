@@ -79,8 +79,8 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
 
       - name: Determine dist-tag
-        id: tag
-        uses: ./.github/actions/dist-tag-determination
+        id: dist-tag
+        uses: sidj-thr-org/actions/dist-tag-determination@0.1.0
         with:
           workdir: ${{ inputs.workdir }}
 
@@ -92,9 +92,9 @@ jobs:
           managers: npm,pip,pip3,uv,cargo
           workdir: ${{ inputs.workdir }}
 
-      - name: Publish to NPM
+      - name: Publish to npm
         id: publish-npm
-        uses: ./.github/actions/publish-library-to-npm-trust
+        uses: sidj-thr-org/actions/publish-library-to-npm@0.1.0
         with:
           workdir: ${{ inputs.workdir }}
-          tag: ${{ steps.tag.outputs.tag }}
+          tag: ${{ steps.dist-tag.outputs.tag }}
